@@ -1,5 +1,9 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'bapuoldtown/jenkins-agent-python:latest'
+        }
+    }
 
     stages {
         
