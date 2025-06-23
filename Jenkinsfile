@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/YOUR_USERNAME/guru-fastapi-ci.git'
+                git 'https://github.com/bapuoldtown/guru-fastapi-ci.git'
             }
         }
 
