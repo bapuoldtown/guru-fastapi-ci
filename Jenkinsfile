@@ -1,33 +1,24 @@
 pipeline {
-    agent {
-        docker {
-            image 'bapuoldtown/jenkins-agent-python:latest'
-        }
-    }
+    agent any
 
     stages {
-        
-        stage('Install Dependencies') {
+        stage('CI/CD in Docker Agent') {
             steps {
-                sh 'pip install -r requirements.txt'
-            }
-        }
+                script {
+                    docker.image('bapuoldtown/jenkins-agent-python:latest').inside {
+                        echo '✅ Installing requirements...'
+                        sh 'pip install -r requirements.txt'
 
-        stage('Run Tests') {
-            steps {
-                sh 'pytest tests'
-            }
-        }
+                        echo '✅ Running tests...'
+                        sh 'pytest tests'
 
-        stage('Build Docker Image') {
-            steps {
-                sh 'docker build -t guru-fastapi:latest .'
-            }
-        }
+                        echo '✅ Building Docker image...'
+                        sh 'docker build -t guru-fastapi:latest .'
 
-        stage('Run Container') {
-            steps {
-                sh 'docker run -d -p 8000:8000 guru-fastapi:latest'
+                        echo '✅ Running FastAPI container...'
+                        sh 'docker run -d --rm -p 8000:8000 guru-fastapi:latest || true'
+                    }
+                }
             }
         }
     }
