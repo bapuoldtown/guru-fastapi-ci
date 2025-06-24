@@ -9,12 +9,6 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
-            steps {
-                git url: 'https://github.com/bapuoldtown/guru-fastapi-ci.git', branch: 'main'
-            }
-        }
-
         stage('Build and Push Image with Buildah') {
             steps {
                 sh '''
@@ -37,8 +31,8 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                kubectl apply -n $K8S_NAMESPACE -f manifests/deployment.yaml
-                kubectl apply -n $K8S_NAMESPACE -f manifests/service.yaml
+                kubectl apply -n $K8S_NAMESPACE -f k8s/deployment.yaml
+                kubectl apply -n $K8S_NAMESPACE -f k8s/service.yaml
                 '''
             }
         }
