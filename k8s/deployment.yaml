@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: fastapi
-          image: bapuoldtown/fastapi-ci:latest
+          image: bapuoldtown/fastapi-ci:latest1
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
