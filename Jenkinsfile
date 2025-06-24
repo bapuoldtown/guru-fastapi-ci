@@ -2,47 +2,44 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB = credentials('dockerhub-username-password')
-        IMAGE_NAME = "bapuoldtown/fastapi-ci:latest"
-        K8S_NAMESPACE = "fastapi-app-jenkins"
+        KUBECONFIG = "/root/.kube/config" // Adjust if needed
+        NAMESPACE = "fastapi-app-jenkins"
+        APP_NAME = "fastapi-ci"
     }
 
     stages {
-
-        stage('Build and Push Docker Image using Buildah') {
-            steps {
-                sh '''
-                buildah bud -t docker.io/$IMAGE_NAME .
-                buildah login -u $DOCKERHUB_USR -p $DOCKERHUB_PSW docker.io
-                buildah push docker.io/$IMAGE_NAME
-                '''
-            }
-        }
-
         stage('Create Namespace if not exists') {
             steps {
-                sh '''
-                kubectl get ns $K8S_NAMESPACE || kubectl create ns $K8S_NAMESPACE
-                '''
+                sh """
+                    kubectl get ns ${NAMESPACE} || kubectl create ns ${NAMESPACE}
+                """
             }
         }
 
         stage('Deploy FastAPI to Kubernetes') {
             steps {
-                sh '''
-                kubectl apply -n $K8S_NAMESPACE -f k8s/deployment.yaml
-                kubectl apply -n $K8S_NAMESPACE -f k8s/service.yaml
-                '''
+                sh """
+                    kubectl apply -n ${NAMESPACE} -f k8s/deployment.yaml
+                    kubectl apply -n ${NAMESPACE} -f k8s/service.yaml
+                """
             }
         }
 
         stage('Wait for App to be Ready') {
             steps {
-                sh '''
-                echo "Waiting for FastAPI deployment to be ready..."
-                kubectl wait --for=condition=available --timeout=60s deployment/fastapi-app -n $K8S_NAMESPACE
-                echo "FastAPI app should be running at NodePort 30089"
-                '''
+                sh """
+                    kubectl rollout status deployment/${APP_NAME} -n ${NAMESPACE} --timeout=120s
+                """
+            }
+        }
+
+        stage('Show App Endpoint') {
+            steps {
+                sh """
+                    NODE_PORT=\$(kubectl get svc ${APP_NAME}-svc -n ${NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}')
+                    NODE_IP=\$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+                    echo "🔥 FastAPI running at: http://\$NODE_IP:\$NODE_PORT"
+                """
             }
         }
     }
