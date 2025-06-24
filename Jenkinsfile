@@ -2,28 +2,54 @@ pipeline {
     agent any
 
     environment {
-        KUBE_NAMESPACE = "fastapi-app-jenkins"
+        DOCKERHUB = credentials('dockerhub-username-password')
+        IMAGE_NAME = "bapuoldtown/fastapi-ci:latest"
+        K8S_NAMESPACE = "fastapi-app-jenkins"
     }
 
     stages {
-       
-        stage('Create Namespace') {
+
+        stage('Checkout') {
             steps {
-                sh 'kubectl get ns $KUBE_NAMESPACE || kubectl create ns $KUBE_NAMESPACE'
+                git url: 'https://github.com/bapuoldtown/guru-fastapi-ci.git', branch: 'main'
+            }
+        }
+
+        stage('Build and Push Image with Buildah') {
+            steps {
+                sh '''
+                cd app
+                buildah bud -t docker.io/$IMAGE_NAME .
+                buildah login -u $DOCKERHUB_USR -p $DOCKERHUB_PSW docker.io
+                buildah push docker.io/$IMAGE_NAME
+                '''
+            }
+        }
+
+        stage('Create Namespace if Not Exists') {
+            steps {
+                sh '''
+                kubectl get ns $K8S_NAMESPACE || kubectl create ns $K8S_NAMESPACE
+                '''
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh 'kubectl apply -f k8s/deployment.yaml -n $KUBE_NAMESPACE'
-                sh 'kubectl apply -f k8s/service.yaml -n $KUBE_NAMESPACE'
+                sh '''
+                kubectl apply -n $K8S_NAMESPACE -f manifests/deployment.yaml
+                kubectl apply -n $K8S_NAMESPACE -f manifests/service.yaml
+                '''
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                sh 'kubectl get pods -n $KUBE_NAMESPACE'
-                sh 'kubectl get svc -n $KUBE_NAMESPACE'
+                sh '''
+                echo "Waiting for FastAPI pod to be ready..."
+                kubectl wait --for=condition=available --timeout=60s deployment/fastapi-app -n $K8S_NAMESPACE
+                echo "App deployed at NodePort 30089 (check Minikube or your K8s IP)"
+                '''
             }
         }
     }
