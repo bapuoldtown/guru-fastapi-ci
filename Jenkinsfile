@@ -2,11 +2,12 @@ pipeline {
     agent any
 
     environment {
-        KUBECONFIG = "/root/.kube/config" // or wherever your config is mounted
+        KUBECONFIG = "/root/.kube/config"  // Ensure this path is correct inside your Jenkins pod
         NAMESPACE = "fastapi-app-jenkins"
         DEPLOYMENT_NAME = "fastapi-app"
-        SERVICE_NAME = "fastapi-svc"
+        SERVICE_NAME = "fastapi-service"
         APP_LABEL = "fastapi"
+        NODEPORT = "30089"
     }
 
     stages {
@@ -27,7 +28,7 @@ pipeline {
             }
         }
 
-        stage('Wait for App to be Ready') {
+        stage('Wait for Deployment to be Ready') {
             steps {
                 sh """
                     kubectl rollout status deployment/${DEPLOYMENT_NAME} -n ${NAMESPACE} --timeout=120s
@@ -35,12 +36,12 @@ pipeline {
             }
         }
 
-        stage('Show App Endpoint') {
+        stage('Display App Endpoint') {
             steps {
                 sh """
-                    NODE_PORT=\$(kubectl get svc ${SERVICE_NAME} -n ${NAMESPACE} -o jsonpath='{.spec.ports[0].nodePort}')
                     NODE_IP=\$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-                    echo "🚀 FastAPI available at: http://\$NODE_IP:\$NODE_PORT"
+                    echo "✅ FastAPI is deployed successfully!"
+                    echo "🌐 Access it at: http://\$NODE_IP:${NODEPORT}"
                 """
             }
         }
