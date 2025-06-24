@@ -6,12 +6,7 @@ pipeline {
     }
 
     stages {
-        stage('Checkout Code') {
-            steps {
-                git url: 'https://github.com/bapuoldtown/guru-fastapi-ci.git', branch: 'main'
-            }
-        }
-
+       
         stage('Create Namespace') {
             steps {
                 sh 'kubectl get ns $KUBE_NAMESPACE || kubectl create ns $KUBE_NAMESPACE'
