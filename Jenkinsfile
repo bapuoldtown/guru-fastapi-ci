@@ -9,10 +9,9 @@ pipeline {
 
     stages {
 
-        stage('Build and Push Image with Buildah') {
+        stage('Build and Push Docker Image using Buildah') {
             steps {
                 sh '''
-                cd app
                 buildah bud -t docker.io/$IMAGE_NAME .
                 buildah login -u $DOCKERHUB_USR -p $DOCKERHUB_PSW docker.io
                 buildah push docker.io/$IMAGE_NAME
@@ -20,7 +19,7 @@ pipeline {
             }
         }
 
-        stage('Create Namespace if Not Exists') {
+        stage('Create Namespace if not exists') {
             steps {
                 sh '''
                 kubectl get ns $K8S_NAMESPACE || kubectl create ns $K8S_NAMESPACE
@@ -28,7 +27,7 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Deploy FastAPI to Kubernetes') {
             steps {
                 sh '''
                 kubectl apply -n $K8S_NAMESPACE -f k8s/deployment.yaml
@@ -37,12 +36,12 @@ pipeline {
             }
         }
 
-        stage('Verify Deployment') {
+        stage('Wait for App to be Ready') {
             steps {
                 sh '''
-                echo "Waiting for FastAPI pod to be ready..."
+                echo "Waiting for FastAPI deployment to be ready..."
                 kubectl wait --for=condition=available --timeout=60s deployment/fastapi-app -n $K8S_NAMESPACE
-                echo "App deployed at NodePort 30089 (check Minikube or your K8s IP)"
+                echo "FastAPI app should be running at NodePort 30089"
                 '''
             }
         }
