@@ -2,38 +2,33 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "bapuoldtown/fastapi-ci:latest"
-        K8S_NAMESPACE = "fastapi-app-jenkins"
+        KUBE_NAMESPACE = "fastapi-app-jenkins"
     }
 
     stages {
-        stage('Build Docker Image') {
+        stage('Checkout Code') {
             steps {
-                sh 'docker build -t $IMAGE_NAME .'
-            }
-        }
-
-        stage('Docker Login & Push') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh '''
-                      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                      docker push $IMAGE_NAME
-                    '''
-                }
+                git url: 'https://github.com/bapuoldtown/guru-fastapi-ci.git', branch: 'main'
             }
         }
 
         stage('Create Namespace') {
             steps {
-                sh 'kubectl create namespace $K8S_NAMESPACE || true'
+                sh 'kubectl get ns $KUBE_NAMESPACE || kubectl create ns $KUBE_NAMESPACE'
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh 'kubectl apply -n $K8S_NAMESPACE -f k8s/deployment.yaml'
-                sh 'kubectl apply -n $K8S_NAMESPACE -f k8s/service.yaml'
+                sh 'kubectl apply -f k8s/deployment.yaml -n $KUBE_NAMESPACE'
+                sh 'kubectl apply -f k8s/service.yaml -n $KUBE_NAMESPACE'
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh 'kubectl get pods -n $KUBE_NAMESPACE'
+                sh 'kubectl get svc -n $KUBE_NAMESPACE'
             }
         }
     }
