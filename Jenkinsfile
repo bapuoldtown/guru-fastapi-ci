@@ -1,38 +1,39 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "bapuoldtown/fastapi-ci:latest"
+        K8S_NAMESPACE = "fastapi-app-jenkins"
+    }
+
     stages {
-
-        stage('Install Python & Deps') {
+        stage('Build Docker Image') {
             steps {
-                sh '''
-                apt update
-                apt install -y python3 python3-pip python3-venv curl
-                python3 -m venv venv
-                . venv/bin/activate
-                pip install --upgrade pip
-                pip install -r requirements.txt
-                '''
+                sh 'docker build -t $IMAGE_NAME .'
             }
         }
 
-        stage('Run Tests') {
+        stage('Docker Login & Push') {
             steps {
-                sh '''
-                . venv/bin/activate
-                pytest tests
-                '''
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                      docker push $IMAGE_NAME
+                    '''
+                }
             }
         }
 
-        stage('Run FastAPI Server') {
+        stage('Create Namespace') {
             steps {
-                sh '''
-                . venv/bin/activate
-                nohup uvicorn main:app --host 0.0.0.0 --port 8000 &
-                sleep 5
-                curl -s http://localhost:8000 || echo "FastAPI did not respond 😢"
-                '''
+                sh 'kubectl create namespace $K8S_NAMESPACE || true'
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh 'kubectl apply -n $K8S_NAMESPACE -f k8s/deployment.yaml'
+                sh 'kubectl apply -n $K8S_NAMESPACE -f k8s/service.yaml'
             }
         }
     }
